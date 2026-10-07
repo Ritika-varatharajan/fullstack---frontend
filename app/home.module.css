@@ -1,0 +1,306 @@
+.container {
+  min-height: 100vh;
+  background: #fff7ed;
+  color: #0f172a;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ================= HEADER ================= */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 3rem;
+  background: #0f172a; /* Midnight Slate */
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.25);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: #ffffff;
+}
+
+.logo span {
+  color: #f97316; /* Sunset Coral accent */
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav a {
+  text-decoration: none;
+  color: #fed7aa;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.nav a:hover {
+  color: #ffffff;
+}
+
+.btnPrimary {
+  background: linear-gradient(135deg, #f97316, #ea580c) !important;
+  color: #ffffff !important;
+  padding: 0.65rem 1.4rem;
+  border-radius: 10px;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.45);
+  transition: all 0.25s ease !important;
+}
+
+.btnPrimary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(249, 115, 22, 0.55);
+}
+
+.btnSecondary {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  padding: 0.65rem 1.4rem;
+  border-radius: 10px;
+  font-weight: 600 !important;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.25s ease !important;
+}
+
+.btnSecondary:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+}
+
+/* ================= HERO SECTION ================= */
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4rem 3rem;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  color: #ffffff;
+  border-radius: 24px;
+  margin: 2rem 3rem;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.35);
+  gap: 3rem;
+}
+
+.heroContent {
+  max-width: 600px;
+}
+
+.badgeTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffedd5;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+}
+
+.heroContent h2 {
+  font-size: 2.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0 0 1rem 0;
+  letter-spacing: -0.02em;
+}
+
+.highlight {
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.heroContent p {
+  color: #ffedd5;
+  font-size: 1.15rem;
+  line-height: 1.6;
+  margin: 0 0 2rem 0;
+}
+
+.heroButtons {
+  display: flex;
+  gap: 1rem;
+}
+
+.heroImage {
+  width: 420px;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  border: 4px solid rgba(255, 255, 255, 0.15);
+  transition: transform 0.3s ease;
+}
+
+.heroImage:hover {
+  transform: translateY(-5px) scale(1.02);
+}
+
+/* ================= FEATURE & ROLE SECTIONS ================= */
+.section {
+  padding: 4rem 3rem;
+  text-align: center;
+}
+
+.section h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.02em;
+}
+
+.sectionSub {
+  color: #64748b;
+  font-size: 1.05rem;
+  margin: 0 0 2.5rem 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: #ffffff;
+  padding: 2rem;
+  border-radius: 18px;
+  border: 1px solid #fed7aa;
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.05);
+  text-align: left;
+  transition: all 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  border-color: #f97316;
+  box-shadow: 0 12px 30px rgba(249, 115, 22, 0.15);
+}
+
+.iconBox {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #f97316;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* ROLE PORTALS SHOWCASE */
+.rolePortalsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.rolePortalCard {
+  background: #ffffff;
+  border: 1px solid #fed7aa;
+  border-top: 5px solid #f97316;
+  border-radius: 20px;
+  padding: 2.25rem;
+  text-align: left;
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.06);
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.rolePortalCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 14px 35px rgba(249, 115, 22, 0.15);
+}
+
+.portalBadge {
+  background: #fff7ed;
+  color: #f97316;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  width: fit-content;
+  margin-bottom: 1rem;
+}
+
+.rolePortalCard h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.rolePortalCard p {
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.portalBtn {
+  background: #fff7ed;
+  color: #f97316;
+  text-decoration: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  width: fit-content;
+  border: 1px solid #fed7aa;
+}
+
+.portalBtn:hover {
+  background: #f97316;
+  color: #ffffff;
+}
+
+/* ================= FOOTER ================= */
+.footer {
+  text-align: center;
+  padding: 2rem;
+  background: #0f172a;
+  color: #fed7aa;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer p {
+  margin: 0;
+  font-size: 0.9rem;
+}
