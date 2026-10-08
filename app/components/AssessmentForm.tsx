@@ -149,6 +149,12 @@ export default function AssessmentForm({ onSubmit, initialData }: Props) {
     setQuestions(questions.filter((_, i) => i !== index));
   };
 
+  const [hasBeenSubmitted, setHasBeenSubmitted] = useState(false);
+
+  useEffect(() => {
+    setHasBeenSubmitted(false);
+  }, [initialData]);
+
   return (
     <div className={styles.container}>
       <h3 className={styles.title}>
@@ -423,8 +429,26 @@ export default function AssessmentForm({ onSubmit, initialData }: Props) {
               return alert("Deadline date must be today or a future date!");
             }
 
+            if (hasBeenSubmitted && !initialData) {
+              alert("This assessment is already created");
+              onSubmit({
+                title,
+                type,
+                difficulty: "Medium" as any,
+                category,
+                topic,
+                instructions,
+                timeLimit,
+                dueDate,
+                questions,
+                isAlreadyCreated: true,
+              } as any);
+              return;
+            }
+
+            setHasBeenSubmitted(true);
             onSubmit({
-              ...initialData,
+              ...(initialData || {}),
               title,
               type,
               difficulty: (initialData?.difficulty || "Medium") as any,

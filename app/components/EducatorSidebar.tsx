@@ -27,6 +27,7 @@ export default function EducatorSidebar({
     { id: "assessments", label: "My Assessments", icon: "📝" },
     { id: "create", label: "Create Assessment", icon: "➕" },
     { id: "assign", label: "Assignments", icon: "🎯" },
+    { id: "notes", label: "Study Notes & Materials", icon: "📚" },
     { id: "students", label: "Students Roster", icon: "👥" },
     { id: "results", label: "Results & Reports", icon: "📈" },
   ];

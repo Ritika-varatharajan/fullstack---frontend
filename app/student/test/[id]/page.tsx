@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
 import styles from "./test.module.css";
@@ -39,6 +39,7 @@ export default function TestPage() {
   const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [showResultModal, setShowResultModal] = useState(false);
+  const isSubmittingRef = useRef(false);
   
   // Results summary state
   const [score, setScore] = useState(0);
@@ -119,14 +120,9 @@ export default function TestPage() {
   // ✅ AUTOMATIC GRADINGS & INSTANT DETAILED MOTIVATING FEEDBACK
   const handleSubmit = useCallback(
     async (auto = false) => {
-      if (!assessment || submitted) return;
+      if (!assessment || submitted || isSubmittingRef.current) return;
 
-      if (!auto && Object.keys(answers).length === 0) {
-        if (!confirm("You haven't answered any questions. Are you sure you want to submit?")) {
-          return;
-        }
-      }
-
+      isSubmittingRef.current = true;
       setSubmitted(true);
 
       let totalEarned = 0;
@@ -239,14 +235,17 @@ export default function TestPage() {
   }, [assessment]);
 
   useEffect(() => {
-    if (!assessment || submitted) return;
+    if (!assessment || submitted || isSubmittingRef.current) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          alert("⏳ Time limit reached! Your test answers are being automatically submitted now.");
-          handleSubmit(true);
+          if (!isSubmittingRef.current) {
+            isSubmittingRef.current = true;
+            alert("⏳ Time limit reached! Your test answers are being automatically submitted now.");
+            handleSubmit(true);
+          }
           return 0;
         }
         return prev - 1;

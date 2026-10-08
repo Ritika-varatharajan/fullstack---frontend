@@ -24,6 +24,8 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Notifications State
   const [notificationsList, setNotificationsList] = useState<NotificationItem[]>([]);
@@ -35,6 +37,11 @@ export default function StudentDashboard() {
   // Subject Performance Report Modal State
   const [showSubjectReportModal, setShowSubjectReportModal] = useState(false);
   const [selectedSubjectReport, setSelectedSubjectReport] = useState<any>(null);
+
+  // Notes State
+  const [notes, setNotes] = useState<any[]>([]);
+  const [noteAssignments, setNoteAssignments] = useState<any[]>([]);
+  const [selectedNoteForModal, setSelectedNoteForModal] = useState<any>(null);
 
   const router = useRouter();
 
@@ -54,22 +61,28 @@ export default function StudentDashboard() {
 
   const fetchData = async () => {
     try {
-      const [a, asg, r, u] = await Promise.all([
+      const [a, asg, r, u, n, nasg] = await Promise.all([
         axios.get(`${API}/assessments`),
         axios.get(`${API}/assignments`),
         axios.get(`${API}/results`),
         axios.get(`${API}/users`),
+        axios.get(`${API}/notes`).catch(() => ({ data: [] })),
+        axios.get(`${API}/note-assignments`).catch(() => ({ data: [] })),
       ]);
 
       const loadedAssessments = a.data || [];
       const loadedAssignments = asg.data || [];
       const loadedResults = r.data || [];
       const loadedUsers = u.data || [];
+      const loadedNotes = n.data || [];
+      const loadedNoteAssignments = nasg.data || [];
 
       setAssessments(loadedAssessments);
       setAssignments(loadedAssignments);
       setResults(loadedResults);
       setUsers(loadedUsers);
+      setNotes(loadedNotes);
+      setNoteAssignments(loadedNoteAssignments);
 
       generateNotifications(loadedAssessments, loadedAssignments, loadedResults, student);
     } catch (err) {
@@ -144,7 +157,7 @@ export default function StudentDashboard() {
         percentage: pct,
         scoreImprovement: improvementBadge,
         feedback: r.feedback || "Evaluated successfully.",
-        submittedAt: r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : "Completed",
+        submittedAt: r.submittedAt ? (new Date(r.submittedAt).toString() !== "Invalid Date" ? new Date(r.submittedAt).toLocaleDateString() : String(r.submittedAt)) : new Date().toLocaleDateString(),
       };
     });
 
@@ -395,12 +408,102 @@ export default function StudentDashboard() {
   // -------------------------------------------------------------
   // 📚 CATEGORY GROUPING & WEAK AREA DETECTOR
   // -------------------------------------------------------------
+  const filteredMyAssessments = myAssessments.filter((a) => {
+    const q = (searchQuery || "").toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (a.title || "").toLowerCase().includes(q) ||
+      (a.category || "").toLowerCase().includes(q) ||
+      (a.description || "").toLowerCase().includes(q)
+    );
+  });
+
   const groupedAssessments: Record<string, any[]> = {};
-  myAssessments.forEach((a) => {
+  filteredMyAssessments.forEach((a) => {
     const cat = a.category && a.category.trim() ? a.category.trim() : "General";
     if (!groupedAssessments[cat]) groupedAssessments[cat] = [];
     groupedAssessments[cat].push(a);
   });
+
+  // -------------------------------------------------------------
+  // 📖 STUDY NOTES FILTERING & GROUPING LOGIC
+  // -------------------------------------------------------------
+  const myAssignedNoteIds = noteAssignments
+    .filter((na) => String(na.studentId) === String(student.id))
+    .map((na) => String(na.noteId));
+
+  const myAssignedNotes = notes.filter((n) => myAssignedNoteIds.includes(String(n.id)));
+
+  const filteredMyNotes = myAssignedNotes.filter((n) => {
+    const q = (searchQuery || "").toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (n.title || "").toLowerCase().includes(q) ||
+      (n.category || "").toLowerCase().includes(q) ||
+      (n.topic || "").toLowerCase().includes(q) ||
+      (n.description || "").toLowerCase().includes(q) ||
+      (n.content || "").toLowerCase().includes(q)
+    );
+  });
+
+  const groupedNotes: Record<string, any[]> = {};
+  filteredMyNotes.forEach((n) => {
+    const cat = n.category && n.category.trim() ? n.category.trim() : "General";
+    if (!groupedNotes[cat]) groupedNotes[cat] = [];
+    groupedNotes[cat].push(n);
+  });
+
+  const handleDownloadNotePDF = (note: any) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${note.title || "Study Note"} - Study Material</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; color: #1e293b; line-height: 1.6; }
+          .header { border-bottom: 3px solid #0284c7; padding-bottom: 15px; margin-bottom: 25px; }
+          .header h1 { margin: 0; color: #0369a1; font-size: 24px; }
+          .header p { margin: 5px 0 0 0; color: #64748b; font-size: 14px; }
+          .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f0f9ff; padding: 15px; border-radius: 8px; border: 1px solid #bae6fd; margin-bottom: 25px; }
+          .meta-item strong { color: #0369a1; }
+          .section-title { font-size: 16px; font-weight: bold; color: #0f172a; margin-top: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+          .content-box { background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #cbd5e1; white-space: pre-wrap; font-size: 15px; margin-top: 15px; }
+          .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📚 ${note.title || "Study Note"}</h1>
+          <p>Academic Subject Study Material & Reference Document</p>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-item"><strong>Subject / Category:</strong> ${note.category || "General"}</div>
+          <div class="meta-item"><strong>Topic / Module:</strong> ${note.topic || "General Overview"}</div>
+          <div class="meta-item"><strong>Educator:</strong> ${note.educatorName ? (note.educatorName.toLowerCase().startsWith("prof.") ? note.educatorName : 'Prof. ' + note.educatorName) : 'Prof. Educator'}</div>
+          <div class="meta-item"><strong>Date Uploaded:</strong> ${note.createdAt ? new Date(note.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}</div>
+        </div>
+        ${note.description ? `<div class="section-title">Overview</div><p>${note.description}</p>` : ""}
+        <div class="section-title">Detailed Study Content & Notes</div>
+        <div class="content-box">${note.content || "No text content provided."}</div>
+        ${note.fileUrl ? `<div class="section-title">Reference Attachment Link</div><p><a href="${note.fileUrl}">${note.fileUrl}</a></p>` : ""}
+        <div class="footer">
+          Generated by Assessment & Learning Portal • Confidential Study Material
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+          }
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
 
   // Calculate subject mastery breakdown
   const subjectMastery: Record<string, { scoreSum: number; count: number }> = {};
@@ -480,14 +583,87 @@ export default function StudentDashboard() {
               )}
             </button>
 
-            {/* PROFILE PILL */}
-            <div className={styles.profilePill}>
-              <div className={styles.pillAvatar}>
-                {(student?.fullName || student?.name || "S").charAt(0).toUpperCase()}
+            {/* PROFILE PILL & DROPDOWN MENU */}
+            <div className={styles.profileWrapper}>
+              <div
+                className={styles.profilePill}
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                title="Account Menu"
+              >
+                <div className={styles.pillAvatar}>
+                  {(student?.fullName || student?.name || "S").charAt(0).toUpperCase()}
+                </div>
+                <span className={styles.pillText}>
+                  {student?.fullName?.split(" ")[0] || student?.name || "Student"}
+                </span>
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style={{
+                    marginLeft: "2px",
+                    transition: "transform 0.2s",
+                    transform: showProfileDropdown ? "rotate(180deg)" : "none",
+                  }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </div>
-              <span className={styles.pillText}>
-                {student?.fullName?.split(" ")[0] || "Student"}
-              </span>
+
+              {showProfileDropdown && (
+                <>
+                  <div
+                    className={styles.profileDropdownOverlay}
+                    onClick={() => setShowProfileDropdown(false)}
+                  />
+                  <div className={styles.profileDropdownMenu}>
+                    <div className={styles.dropdownHeader}>
+                      <div className={styles.dropdownAvatar}>
+                        {(student?.fullName || student?.name || "S").charAt(0).toUpperCase()}
+                      </div>
+                      <div className={styles.dropdownUserInfo}>
+                        <span className={styles.dropdownName}>
+                          {student?.fullName || student?.name || "Student"}
+                        </span>
+                        <span className={styles.dropdownEmail}>
+                          {student?.email || "student@portal.com"}
+                        </span>
+                        <span className={styles.dropdownRoleBadge}>
+                          {student?.role || "Student"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      className={styles.dropdownItem}
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        setShowProfileModal(true);
+                      }}
+                    >
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      My Profile
+                    </button>
+
+                    <button
+                      className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        handleLogout();
+                      }}
+                    >
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -1033,7 +1209,187 @@ export default function StudentDashboard() {
             onNavigateTab={(tab) => setActiveTab(tab)}
           />
         )}
+
+        {/* 🚀 8. STUDY NOTES & LEARNING MATERIALS TAB FOR STUDENTS */}
+        {activeTab === "notes" && (
+          <div className={styles.sectionContainer}>
+            <div className={styles.heroBanner} style={{ background: "linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #075985 100%)" }}>
+              <div className={styles.bannerText}>
+                <h2>📚 Study Notes & Learning Materials</h2>
+                <p>Access subject study guides, lecture notes, and reference materials assigned by your educators.</p>
+              </div>
+            </div>
+
+            {Object.keys(groupedNotes).length === 0 ? (
+              <div className={styles.emptyCard} style={{ textAlign: "center", padding: "3rem" }}>
+                <p>{searchQuery ? `🔍 No study notes found matching "${searchQuery}".` : "📚 No study notes assigned to you yet."}</p>
+              </div>
+            ) : (
+              Object.entries(groupedNotes).map(([catName, noteList]) => (
+                <div key={catName} className={styles.cardSection}>
+                  <div className={styles.sectionHeader}>
+                    <h3 style={{ color: "#0284c7" }}>📘 {catName} ({noteList.length} Note{noteList.length === 1 ? "" : "s"})</h3>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
+                    {noteList.map((n) => (
+                      <div
+                        key={n.id}
+                        style={{
+                          background: "#ffffff",
+                          borderRadius: "16px",
+                          padding: "1.5rem",
+                          border: "1px solid #bae6fd",
+                          boxShadow: "0 4px 12px rgba(2, 132, 199, 0.08)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                            <span className={styles.statusBadge} style={{ background: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc" }}>
+                              📚 {n.category || "General"}
+                            </span>
+                            <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                              {n.createdAt ? new Date(n.createdAt).toLocaleDateString() : "Recent"}
+                            </span>
+                          </div>
+
+                          <h3 style={{ margin: "0 0 0.35rem 0", color: "#0f172a", fontSize: "1.1rem" }}>{n.title}</h3>
+                          {n.topic && <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", color: "#0284c7", fontWeight: 600 }}>Topic: {n.topic}</p>}
+                          <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.8rem", color: "#64748b" }}>
+                            Educator: <strong>{n.educatorName ? (n.educatorName.toLowerCase().startsWith("prof.") ? n.educatorName : `Prof. ${n.educatorName}`) : "Prof. Educator"}</strong>
+                          </p>
+
+                          <p style={{ margin: 0, fontSize: "0.88rem", color: "#475569", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                            {n.description || n.content || "Click below to read full study note."}
+                          </p>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                          <button
+                            className={styles.primaryBtn}
+                            onClick={() => setSelectedNoteForModal(n)}
+                            style={{ flex: 1, background: "#0284c7", borderColor: "#0284c7", padding: "0.55rem 0.75rem", fontSize: "0.88rem" }}
+                          >
+                            📖 Read & View Note
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </main>
+
+      {/* 📖 FULL STUDY NOTE READER MODAL */}
+      {selectedNoteForModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent} style={{ maxWidth: "700px", padding: "2rem" }}>
+            <div className={styles.modalHeader}>
+              <div>
+                <span className={styles.statusBadge} style={{ background: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc" }}>
+                  📚 {selectedNoteForModal.category || "General"}
+                </span>
+                <h2 style={{ margin: "0.5rem 0 0.25rem 0", color: "#0f172a" }}>{selectedNoteForModal.title}</h2>
+                {selectedNoteForModal.topic && <p style={{ margin: 0, color: "#0284c7", fontWeight: 600 }}>Topic: {selectedNoteForModal.topic}</p>}
+                <p style={{ margin: "0.25rem 0 0 0", color: "#64748b", fontSize: "0.85rem" }}>
+                  Educator: <strong>{selectedNoteForModal.educatorName ? (selectedNoteForModal.educatorName.toLowerCase().startsWith("prof.") ? selectedNoteForModal.educatorName : `Prof. ${selectedNoteForModal.educatorName}`) : "Prof. Educator"}</strong>
+                </p>
+              </div>
+              <button className={styles.closeBtn} onClick={() => setSelectedNoteForModal(null)}>✖</button>
+            </div>
+
+            {selectedNoteForModal.description && (
+              <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: "10px", border: "1px solid #e2e8f0", margin: "1rem 0" }}>
+                <strong style={{ color: "#334155" }}>Overview / Description:</strong>
+                <p style={{ margin: "0.25rem 0 0 0", color: "#475569", fontSize: "0.92rem" }}>{selectedNoteForModal.description}</p>
+              </div>
+            )}
+
+            <div style={{ margin: "1rem 0" }}>
+              <h4 style={{ margin: "0 0 0.5rem 0", color: "#0f172a" }}>Detailed Study Material & Instructions:</h4>
+              <div style={{ background: "#ffffff", padding: "1.25rem", borderRadius: "10px", border: "1px solid #cbd5e1", whiteSpace: "pre-wrap", fontSize: "0.95rem", lineHeight: "1.6", color: "#1e293b", maxHeight: "350px", overflowY: "auto" }}>
+                {selectedNoteForModal.content || "No detailed content text provided for this note."}
+              </div>
+            </div>
+
+            {/* BLUE DOWNLOAD FILE BUTTON CONTAINER */}
+            <div style={{ margin: "1rem 0", padding: "0.85rem 1rem", background: "#f0f9ff", borderRadius: "10px", border: "1px solid #bae6fd", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "1.2rem" }}>📁</span>
+                <div>
+                  <strong style={{ color: "#0f172a", fontSize: "0.9rem" }}>Attached File:</strong>{" "}
+                  <span style={{ color: "#0284c7", fontWeight: 700, fontSize: "0.9rem" }}>
+                    {selectedNoteForModal.fileName || "Hands-on_OOPs Concept Realization - Questions.pdf"}
+                  </span>
+                </div>
+              </div>
+              {selectedNoteForModal.fileUrl ? (
+                <a
+                  href={selectedNoteForModal.fileUrl}
+                  download={selectedNoteForModal.fileName || "StudyDocument"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.primaryBtn}
+                  style={{
+                    background: "#0284c7",
+                    borderColor: "#0284c7",
+                    padding: "0.55rem 1.15rem",
+                    fontSize: "0.88rem",
+                    fontWeight: 700,
+                    color: "#ffffff",
+                    textDecoration: "none",
+                    borderRadius: "8px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    boxShadow: "0 2px 6px rgba(2, 132, 199, 0.2)",
+                  }}
+                >
+                  📥 Download File
+                </a>
+              ) : (
+                <button
+                  className={styles.primaryBtn}
+                  onClick={() => handleDownloadNotePDF(selectedNoteForModal)}
+                  style={{
+                    background: "#0284c7",
+                    borderColor: "#0284c7",
+                    padding: "0.55rem 1.15rem",
+                    fontSize: "0.88rem",
+                    fontWeight: 700,
+                    color: "#ffffff",
+                    borderRadius: "8px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    boxShadow: "0 2px 6px rgba(2, 132, 199, 0.2)",
+                  }}
+                >
+                  📥 Download File
+                </button>
+              )}
+            </div>
+
+            {/* ONLY CLOSE BUTTON AT BOTTOM (BLACK BUTTON REMOVED) */}
+            <div className={styles.modalActionRow} style={{ marginTop: "1.5rem" }}>
+              <button
+                className={styles.secondaryBtn}
+                onClick={() => setSelectedNoteForModal(null)}
+                style={{ width: "100%", padding: "0.7rem", borderRadius: "10px", fontSize: "0.95rem", fontWeight: 700 }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* STUDENT ANSWER SHEET & RESULT BREAKDOWN MODAL */}
       {showAnswerSheetModal && selectedStudentResult && (() => {
@@ -1173,11 +1529,6 @@ export default function StudentDashboard() {
               <div className={styles.reportMetaItem}>
                 <span className={styles.reportMetaLabel}>Academic Subject / Domain</span>
                 <span className={styles.reportMetaVal}>{selectedSubjectReport.subjectName}</span>
-              </div>
-
-              <div className={styles.reportMetaItem}>
-                <span className={styles.reportMetaLabel}>Lead Educator</span>
-                <span className={styles.reportMetaVal}>{selectedSubjectReport.primaryEducatorName}</span>
               </div>
 
               <div className={styles.reportMetaItem}>
@@ -1332,6 +1683,63 @@ export default function StudentDashboard() {
               </button>
               <button className={styles.printBtn} onClick={() => window.print()}>
                 📥 Download PDF Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MY PROFILE MODAL */}
+      {showProfileModal && (
+        <div className={styles.modalBackdrop} onClick={() => setShowProfileModal(false)}>
+          <div className={styles.profileModalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.profileModalHeader}>
+              <h2>My Student Profile</h2>
+              <button className={styles.closeBtn} onClick={() => setShowProfileModal(false)}>✕</button>
+            </div>
+            <div className={styles.profileModalBody}>
+              <div className={styles.profileHero}>
+                <div className={styles.profileHeroAvatar}>
+                  {(student?.fullName || student?.name || "S").charAt(0).toUpperCase()}
+                </div>
+                <div className={styles.profileHeroInfo}>
+                  <h3>{student?.fullName || student?.name || "Student"}</h3>
+                  <p>{student?.email || "student@portal.com"}</p>
+                  <span className={styles.dropdownRoleBadge}>
+                    Enrolled Student
+                  </span>
+                </div>
+              </div>
+              <div className={styles.profileDetailsGrid}>
+                <div className={styles.profileDetailItem}>
+                  <label>Full Name</label>
+                  <span>{student?.fullName || student?.name || "N/A"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>Email Address</label>
+                  <span>{student?.email || "N/A"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>User Role</label>
+                  <span style={{ textTransform: "capitalize" }}>{student?.role || "Student"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>Account Status</label>
+                  <span style={{ color: "#16a34a" }}>Active ✅</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>User ID</label>
+                  <span>#{student?.id || "STU-202"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>Portal Access</label>
+                  <span>Assessment Portal</span>
+                </div>
+              </div>
+            </div>
+            <div className={styles.profileModalFooter}>
+              <button className={styles.primaryCloseBtn} onClick={() => setShowProfileModal(false)}>
+                Close Profile
               </button>
             </div>
           </div>

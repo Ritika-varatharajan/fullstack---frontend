@@ -26,6 +26,8 @@ export default function EducatorDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Student filter inside Assignment panel
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
@@ -55,6 +57,45 @@ export default function EducatorDashboard() {
     assessmentId: "",
     studentIds: [] as string[],
   });
+
+  // Notes State
+  const [notes, setNotes] = useState<any[]>([]);
+  const [noteAssignments, setNoteAssignments] = useState<any[]>([]);
+  const [activeNoteSubTab, setActiveNoteSubTab] = useState<"create" | "assign-notes" | "list">("create");
+  const [newNote, setNewNote] = useState({
+    title: "",
+    category: "",
+    topic: "",
+    description: "",
+    content: "",
+    fileUrl: "",
+    fileName: "",
+  });
+  const [assignNoteData, setAssignNoteData] = useState({
+    noteId: "",
+    studentIds: [] as string[],
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert("File size exceeds 15MB limit. Please choose a smaller file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setNewNote((prev) => ({
+        ...prev,
+        fileUrl: dataUrl,
+        fileName: file.name,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const router = useRouter();
 
@@ -203,21 +244,27 @@ export default function EducatorDashboard() {
 
   const fetchData = async () => {
     try {
-      const [a, r, u, asg] = await Promise.all([
+      const [a, r, u, asg, n, nasg] = await Promise.all([
         axios.get(`${API}/assessments`),
         axios.get(`${API}/results`),
         axios.get(`${API}/users`),
         axios.get(`${API}/assignments`),
+        axios.get(`${API}/notes`).catch(() => ({ data: [] })),
+        axios.get(`${API}/note-assignments`).catch(() => ({ data: [] })),
       ]);
 
       const loadedAssessments = a.data || [];
       const loadedResults = r.data || [];
       const loadedUsers = u.data || [];
       const loadedAssignments = asg.data || [];
+      const loadedNotes = n.data || [];
+      const loadedNoteAssignments = nasg.data || [];
 
       setAssessments(loadedAssessments);
       setResults(loadedResults);
       setAssignments(loadedAssignments);
+      setNotes(loadedNotes);
+      setNoteAssignments(loadedNoteAssignments);
 
       // Filter student users (exclude current logged-in educator)
       const studentUsers = loadedUsers.filter(
@@ -452,38 +499,191 @@ export default function EducatorDashboard() {
 
   const handleAssessmentFormSubmit = async (formData: any) => {
     try {
-      let createdOrUpdatedId = editAssessment?.id;
+      if (!editAssessment) {
+        // Check if an assessment with the exact same title & category created by this educator already exists
+        const existingDuplicate = assessments.find(
+          (a) =>
+            (String(a.educatorId) === String(educator.id) || String(a.createdBy) === String(educator.id)) &&
+            String(a.title || "").trim().toLowerCase() === String(formData.title || "").trim().toLowerCase() &&
+            String(a.category || "").trim().toLowerCase() === String(formData.category || "").trim().toLowerCase()
+        );
+
+        if (existingDuplicate) {
+          alert("This assessment is already created");
+          setAssignData({
+            assessmentId: String(existingDuplicate.id),
+            studentIds: [],
+          });
+          setActiveTab("assign");
+          return;
+        }
+      }
 
       if (editAssessment) {
         await axios.put(`${API}/assessments/${editAssessment.id}`, {
           ...formData,
           educatorId: educator.id,
         });
-        alert("Assessment template updated successfully ✅");
+        alert("Assessment template updated successfully! Redirecting to Assignments section ✅");
         setShowModal(false);
         setEditAssessment(null);
-        fetchData();
+        await fetchData();
+        setAssignData({
+          assessmentId: String(editAssessment.id),
+          studentIds: [],
+        });
+        setActiveTab("assign");
       } else {
         const res = await axios.post(`${API}/assessments`, {
           ...formData,
           educatorId: educator.id,
           createdBy: educator.id,
         });
-        createdOrUpdatedId = res.data?.id || (assessments.length + 1).toString();
-        alert("Assessment created successfully! Select students to assign ✅");
+        const createdId = res.data?.id;
+        alert("Assessment created successfully! Redirecting to Assignments section to assign to students. ✅");
 
+        await fetchData();
         setAssignData({
-          assessmentId: String(createdOrUpdatedId),
-          studentIds: students.map((s) => String(s.id)),
+          assessmentId: String(createdId || ""),
+          studentIds: [],
         });
-        setShowAssignModal(true);
-        fetchData();
+        setActiveTab("assign");
       }
     } catch (err) {
       console.error(err);
       alert("Error saving assessment");
     }
   };
+
+  // ✅ NOTES HANDLERS
+  const handleCreateNoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNote.title.trim() || !newNote.category.trim()) {
+      alert("Please enter a note title and category/subject.");
+      return;
+    }
+
+    try {
+      // Check duplicate note created by this educator
+      const existingDuplicate = notes.find(
+        (n) =>
+          (String(n.educatorId) === String(educator.id) || String(n.createdBy) === String(educator.id)) &&
+          String(n.title || "").trim().toLowerCase() === String(newNote.title || "").trim().toLowerCase() &&
+          String(n.category || "").trim().toLowerCase() === String(newNote.category || "").trim().toLowerCase()
+      );
+
+      if (existingDuplicate) {
+        alert("This note is already created");
+        setAssignNoteData({
+          noteId: String(existingDuplicate.id),
+          studentIds: [],
+        });
+        setActiveNoteSubTab("assign-notes");
+        return;
+      }
+
+      const res = await axios.post(`${API}/notes`, {
+        ...newNote,
+        educatorId: educator.id,
+        educatorName: educator.fullName || educator.name || educator.email || "Educator",
+        createdBy: educator.id,
+      });
+
+      alert("Study note created successfully! Redirecting to Assign Notes section ✅");
+      const createdNoteId = res.data?.id;
+
+      await fetchData();
+
+      setAssignNoteData({
+        noteId: String(createdNoteId || ""),
+        studentIds: [],
+      });
+      setActiveNoteSubTab("assign-notes");
+      setNewNote({ title: "", category: "", topic: "", description: "", content: "", fileUrl: "", fileName: "" });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create note");
+    }
+  };
+
+  const handleAssignNoteToStudents = async () => {
+    if (!assignNoteData.noteId || assignNoteData.studentIds.length === 0) {
+      alert("Please select a study note and at least one student.");
+      return;
+    }
+
+    try {
+      const existing = await axios.get(`${API}/note-assignments`).catch(() => ({ data: [] }));
+      const existingAssignments = existing.data || [];
+
+      const alreadyAssignedIds = assignNoteData.studentIds.filter((studentId) =>
+        existingAssignments.some(
+          (na: any) =>
+            String(na.studentId) === String(studentId) &&
+            String(na.noteId) === String(assignNoteData.noteId)
+        )
+      );
+
+      if (alreadyAssignedIds.length > 0) {
+        const selectedNoteObj = notes.find((n) => String(n.id) === String(assignNoteData.noteId));
+        const duplicateStudents = students.filter((s) => alreadyAssignedIds.includes(String(s.id)));
+        const namesList = duplicateStudents.map((s) => `• ${s.fullName || s.email}`).join("\n");
+        alert(
+          `⚠️ Duplicate Note Assignment Warning!\n\nThe note "${selectedNoteObj?.title || "Selected Note"}" is ALREADY assigned to:\n\n${namesList}\n\nYou cannot assign the same note to the same student multiple times.`
+        );
+        return;
+      }
+
+      await Promise.all(
+        assignNoteData.studentIds.map((studentId) =>
+          axios.post(`${API}/note-assignments`, {
+            noteId: assignNoteData.noteId,
+            studentId: studentId,
+          })
+        )
+      );
+
+      alert(`🚀 Successfully assigned study note to ${assignNoteData.studentIds.length} student(s)!`);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to assign study note.");
+    }
+  };
+
+  const deleteNote = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this study note? All student assignments for this note will be removed.")) return;
+    try {
+      await axios.delete(`${API}/notes/${id}`);
+      alert("Study note deleted successfully ✅");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete note.");
+    }
+  };
+
+  const deleteNoteAssignment = async (assignmentId: string) => {
+    if (!confirm("Unassign student from this note?")) return;
+    try {
+      await axios.delete(`${API}/note-assignments/${assignmentId}`);
+      alert("Student unassigned from note ✅");
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to unassign student.");
+    }
+  };
+
+  const myNotes = notes.filter(
+    (n) =>
+      String(n.educatorId) === String(educator.id) ||
+      String(n.createdBy) === String(educator.id)
+  );
+
+  const myNotesAssignments = noteAssignments.filter((na) =>
+    myNotes.some((n) => String(n.id) === String(na.noteId))
+  );
 
   // ✅ FILTERED DATA BY SEARCH QUERY (ONLY ASSESSMENTS CREATED BY LOGGED-IN EDUCATOR)
   const myAssessments = assessments.filter((a) => {
@@ -709,17 +909,90 @@ export default function EducatorDashboard() {
               )}
             </button>
 
-            {/* PROFILE PILL */}
-            <div className={styles.profilePill}>
-              <div className={styles.pillAvatar}>
-                {(educator?.fullName || "E").charAt(0).toUpperCase()}
+            {/* PROFILE PILL & DROPDOWN MENU */}
+            <div className={styles.profileWrapper}>
+              <div
+                className={styles.profilePill}
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                title="Account Menu"
+              >
+                <div className={styles.pillAvatar}>
+                  {(educator?.fullName || educator?.name || "E").charAt(0).toUpperCase()}
+                </div>
+                <span className={styles.pillText}>
+                  {(() => {
+                    const raw = educator?.fullName || educator?.name || "Educator";
+                    return raw.toLowerCase().startsWith("prof.") ? raw : `Prof. ${raw}`;
+                  })()}
+                </span>
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style={{
+                    marginLeft: "2px",
+                    transition: "transform 0.2s",
+                    transform: showProfileDropdown ? "rotate(180deg)" : "none",
+                  }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </div>
-              <span className={styles.pillText}>
-                {(() => {
-                  const raw = educator?.fullName || educator?.name || "Educator";
-                  return raw.toLowerCase().startsWith("prof.") ? raw : `Prof. ${raw}`;
-                })()}
-              </span>
+
+              {showProfileDropdown && (
+                <>
+                  <div
+                    className={styles.profileDropdownOverlay}
+                    onClick={() => setShowProfileDropdown(false)}
+                  />
+                  <div className={styles.profileDropdownMenu}>
+                    <div className={styles.dropdownHeader}>
+                      <div className={styles.dropdownAvatar}>
+                        {(educator?.fullName || educator?.name || "E").charAt(0).toUpperCase()}
+                      </div>
+                      <div className={styles.dropdownUserInfo}>
+                        <span className={styles.dropdownName}>
+                          {educator?.fullName || educator?.name || "Educator"}
+                        </span>
+                        <span className={styles.dropdownEmail}>
+                          {educator?.email || "educator@portal.com"}
+                        </span>
+                        <span className={styles.dropdownRoleBadge}>
+                          {educator?.role || "Educator"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      className={styles.dropdownItem}
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        setShowProfileModal(true);
+                      }}
+                    >
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      My Profile
+                    </button>
+
+                    <button
+                      className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        handleLogout();
+                      }}
+                    >
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -816,7 +1089,7 @@ export default function EducatorDashboard() {
                           onClick={() => {
                             setAssignData({
                               assessmentId: String(a.id),
-                              studentIds: students.map((s) => String(s.id)),
+                              studentIds: [],
                             });
                             setActiveTab("assign");
                           }}
@@ -892,7 +1165,7 @@ export default function EducatorDashboard() {
                         onClick={() => {
                           setAssignData({
                             assessmentId: String(a.id),
-                            studentIds: students.map((s) => String(s.id)),
+                            studentIds: [],
                           });
                           setActiveTab("assign");
                         }}
@@ -1445,6 +1718,364 @@ export default function EducatorDashboard() {
           </div>
         )}
 
+        {/* 🚀 9. STUDY NOTES & MATERIALS MANAGEMENT TAB */}
+        {activeTab === "notes" && (
+          <div className={styles.sectionContainer}>
+            <div className={styles.heroBanner} style={{ background: "linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #075985 100%)" }}>
+              <div className={styles.bannerText}>
+                <h2>📚 Study Notes & Learning Materials Hub</h2>
+                <p>Create, upload, and assign subject notes and reference study guides directly to students.</p>
+              </div>
+            </div>
+
+            {/* SUB TAB NAVIGATION */}
+            <div className={styles.subTabNav} style={{ display: "flex", gap: "1rem", borderBottom: "2px solid #e2e8f0", paddingBottom: "0.5rem" }}>
+              <button
+                className={activeNoteSubTab === "create" ? styles.primaryBtn : styles.secondaryBtn}
+                onClick={() => setActiveNoteSubTab("create")}
+              >
+                📝 Create & Upload Note
+              </button>
+              <button
+                className={activeNoteSubTab === "assign-notes" ? styles.primaryBtn : styles.secondaryBtn}
+                onClick={() => setActiveNoteSubTab("assign-notes")}
+              >
+                🎯 Assign Note to Students ({myNotesAssignments.length} Assignments)
+              </button>
+              <button
+                className={activeNoteSubTab === "list" ? styles.primaryBtn : styles.secondaryBtn}
+                onClick={() => setActiveNoteSubTab("list")}
+              >
+                📚 View All Notes ({myNotes.length})
+              </button>
+            </div>
+
+            {/* SUB TAB 1: CREATE NOTE FORM */}
+            {activeNoteSubTab === "create" && (
+              <div className={styles.formCard} style={{ background: "#ffffff", padding: "1.75rem", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                <h3 style={{ margin: "0 0 1.25rem 0", color: "#0f172a" }}>📝 Create & Upload New Study Note</h3>
+                <form onSubmit={handleCreateNoteSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div className={styles.formGroup}>
+                      <label style={{ fontWeight: 700, color: "#334155" }}>Note Title *</label>
+                      <input
+                        type="text"
+                        required
+                        className={styles.formInput}
+                        placeholder="e.g. Chapter 4: Data Structures & Algorithms"
+                        value={newNote.title}
+                        onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                        style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label style={{ fontWeight: 700, color: "#334155" }}>Subject / Category *</label>
+                      <input
+                        type="text"
+                        required
+                        className={styles.formInput}
+                        placeholder="e.g. Computer Science, Mathematics, Physics"
+                        value={newNote.category}
+                        onChange={(e) => setNewNote({ ...newNote, category: e.target.value })}
+                        style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                    <div className={styles.formGroup}>
+                      <label style={{ fontWeight: 700, color: "#334155" }}>Topic / Module</label>
+                      <input
+                        type="text"
+                        className={styles.formInput}
+                        placeholder="e.g. Binary Trees & Graph Traversal"
+                        value={newNote.topic}
+                        onChange={(e) => setNewNote({ ...newNote, topic: e.target.value })}
+                        style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label style={{ fontWeight: 700, color: "#334155" }}>
+                        📁 Upload Document / File (Opens File Manager)
+                      </label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt,.zip"
+                        onChange={handleFileUpload}
+                        className={styles.formInput}
+                        style={{ width: "100%", padding: "0.5rem 0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1", background: "#f8fafc" }}
+                      />
+                      {newNote.fileName && (
+                        <div style={{ marginTop: "0.35rem", fontSize: "0.85rem", color: "#0284c7", fontWeight: 700 }}>
+                          ✅ Attached File: {newNote.fileName}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label style={{ fontWeight: 700, color: "#334155" }}>Short Overview / Description</label>
+                    <input
+                      type="text"
+                      className={styles.formInput}
+                      placeholder="Brief overview of what students will learn from this note"
+                      value={newNote.description}
+                      onChange={(e) => setNewNote({ ...newNote, description: e.target.value })}
+                      style={{ width: "100%", padding: "0.65rem 0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label style={{ fontWeight: 700, color: "#334155" }}>Detailed Study Material / Note Content</label>
+                    <textarea
+                      rows={6}
+                      className={styles.formTextArea}
+                      placeholder="Write complete note instructions, detailed formulas, definitions, code snippets, or key takeaway points here..."
+                      value={newNote.content}
+                      onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                      style={{ width: "100%", padding: "0.75rem 0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1" }}
+                    />
+                  </div>
+
+                  <div className={styles.formActionRow} style={{ marginTop: "0.5rem" }}>
+                    <button type="submit" className={styles.primaryBtn} style={{ background: "#0284c7", borderColor: "#0284c7" }}>
+                      💾 Save Note & Proceed to Assigning Students →
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* SUB TAB 2: ASSIGN NOTES TO STUDENTS */}
+            {activeNoteSubTab === "assign-notes" && (
+              <div className={styles.formCard} style={{ background: "#ffffff", padding: "1.75rem", borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
+                <h3 style={{ margin: "0 0 1.25rem 0", color: "#0f172a" }}>🎯 Assign Study Note to Students</h3>
+
+                {myNotes.length === 0 ? (
+                  <div className={styles.emptyCard} style={{ textAlign: "center", padding: "2rem" }}>
+                    <p>No study notes created yet. Please create a note first!</p>
+                    <button className={styles.primaryBtn} onClick={() => setActiveNoteSubTab("create")}>
+                      + Create Note Now
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    <div className={styles.formGroup}>
+                      <label style={{ fontWeight: 700, color: "#334155" }}>Select Study Note to Assign *</label>
+                      <select
+                        className={styles.formSelect}
+                        value={assignNoteData.noteId}
+                        onChange={(e) => setAssignNoteData({ ...assignNoteData, noteId: e.target.value, studentIds: [] })}
+                        style={{ width: "100%", padding: "0.7rem 0.85rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.95rem" }}
+                      >
+                        <option value="">-- Select a Study Note --</option>
+                        {myNotes.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            [{n.category || "General"}] {n.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {assignNoteData.noteId && (() => {
+                      const selectedNote = myNotes.find((n) => String(n.id) === String(assignNoteData.noteId));
+                      const noteAssignedStudents = noteAssignments.filter((na) => String(na.noteId) === String(assignNoteData.noteId));
+                      const assignedStudentIds = noteAssignedStudents.map((na) => String(na.studentId));
+
+                      return (
+                        <>
+                          <div style={{ background: "#f8fafc", padding: "1rem", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                            <h4 style={{ margin: "0 0 0.35rem 0", color: "#0369a1" }}>Selected Note: {selectedNote?.title}</h4>
+                            <p style={{ margin: 0, fontSize: "0.88rem", color: "#64748b" }}>
+                              Subject: <strong>{selectedNote?.category || "General"}</strong> | Topic: <strong>{selectedNote?.topic || "N/A"}</strong> | Currently Assigned: <strong>{assignedStudentIds.length} Student(s)</strong>
+                            </p>
+                          </div>
+
+                          <div className={styles.formGroup}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+                              <label style={{ fontWeight: 700, color: "#334155" }}>Select Recipient Students:</label>
+                              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontWeight: 700, color: "#0284c7" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    students.length > 0 &&
+                                    assignNoteData.studentIds.length === students.filter((s) => !assignedStudentIds.includes(String(s.id))).length
+                                  }
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      const unassigned = students
+                                        .filter((s) => !assignedStudentIds.includes(String(s.id)))
+                                        .map((s) => String(s.id));
+                                      setAssignNoteData({ ...assignNoteData, studentIds: unassigned });
+                                    } else {
+                                      setAssignNoteData({ ...assignNoteData, studentIds: [] });
+                                    }
+                                  }}
+                                />
+                                <span>Select All Unassigned Students ({students.filter((s) => !assignedStudentIds.includes(String(s.id))).length})</span>
+                              </label>
+                            </div>
+
+                            <div style={{ maxHeight: "250px", overflowY: "auto", border: "1px solid #cbd5e1", borderRadius: "8px", padding: "0.75rem", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "0.5rem" }}>
+                              {students.map((s) => {
+                                const sId = String(s.id);
+                                const isAssigned = assignedStudentIds.includes(sId);
+                                const isSelected = assignNoteData.studentIds.includes(sId);
+
+                                return (
+                                  <label
+                                    key={sId}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.6rem",
+                                      padding: "0.5rem",
+                                      borderRadius: "6px",
+                                      background: isAssigned ? "#f1f5f9" : isSelected ? "#e0f2fe" : "#ffffff",
+                                      border: isAssigned ? "1px solid #cbd5e1" : isSelected ? "1px solid #0284c7" : "1px solid #e2e8f0",
+                                      cursor: isAssigned ? "not-allowed" : "pointer",
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      disabled={isAssigned}
+                                      checked={isAssigned || isSelected}
+                                      onChange={(e) => {
+                                        if (isAssigned) return;
+                                        if (e.target.checked) {
+                                          setAssignNoteData({ ...assignNoteData, studentIds: [...assignNoteData.studentIds, sId] });
+                                        } else {
+                                          setAssignNoteData({ ...assignNoteData, studentIds: assignNoteData.studentIds.filter((id) => id !== sId) });
+                                        }
+                                      }}
+                                    />
+                                    <span style={{ fontSize: "0.88rem", color: isAssigned ? "#64748b" : "#0f172a" }}>
+                                      {s.fullName || s.email} {isAssigned && "✅ (Assigned)"}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <button
+                            className={styles.primaryBtn}
+                            onClick={handleAssignNoteToStudents}
+                            style={{ background: "#0284c7", borderColor: "#0284c7", alignSelf: "flex-start" }}
+                          >
+                            🚀 Assign Study Note ({assignNoteData.studentIds.length} Selected)
+                          </button>
+
+                          {/* CURRENT ASSIGNMENTS TABLE */}
+                          {noteAssignedStudents.length > 0 && (
+                            <div style={{ marginTop: "1rem" }}>
+                              <h4 style={{ margin: "0 0 0.5rem 0", color: "#0f172a" }}>Assigned Students List</h4>
+                              <div className={styles.tableWrapper}>
+                                <table className={styles.table}>
+                                  <thead>
+                                    <tr>
+                                      <th>Student Name</th>
+                                      <th>Email</th>
+                                      <th>Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {noteAssignedStudents.map((na) => {
+                                      const st = students.find((s) => String(s.id) === String(na.studentId));
+                                      return (
+                                        <tr key={na.id}>
+                                          <td>{st?.fullName || "Student"}</td>
+                                          <td>{st?.email || "-"}</td>
+                                          <td>
+                                            <button className={styles.deleteBtn} onClick={() => deleteNoteAssignment(na.id)}>
+                                              Unassign ✕
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUB TAB 3: LIST ALL STUDY NOTES */}
+            {activeNoteSubTab === "list" && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "1.25rem" }}>
+                {myNotes.length === 0 ? (
+                  <div className={styles.emptyCard} style={{ gridColumn: "1 / -1", textAlign: "center", padding: "3rem" }}>
+                    <p>No study notes uploaded yet.</p>
+                  </div>
+                ) : (
+                  myNotes.map((n) => {
+                    const count = noteAssignments.filter((na) => String(na.noteId) === String(n.id)).length;
+                    return (
+                      <div
+                        key={n.id}
+                        style={{
+                          background: "#ffffff",
+                          borderRadius: "16px",
+                          padding: "1.5rem",
+                          border: "1px solid #e2e8f0",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          gap: "1rem",
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                            <span className={styles.statusActive} style={{ background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd" }}>
+                              📚 {n.category || "General"}
+                            </span>
+                            <span style={{ fontSize: "0.8rem", color: "#64748b" }}>{n.createdAt ? new Date(n.createdAt).toLocaleDateString() : "Recent"}</span>
+                          </div>
+                          <h3 style={{ margin: "0 0 0.35rem 0", color: "#0f172a", fontSize: "1.15rem" }}>{n.title}</h3>
+                          {n.topic && <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", color: "#0284c7", fontWeight: 600 }}>Topic: {n.topic}</p>}
+                          <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.88rem", color: "#64748b", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                            {n.description || n.content || "No overview provided."}
+                          </p>
+                          <div style={{ fontSize: "0.82rem", color: "#475569" }}>
+                            👥 Assigned to <strong>{count} Student(s)</strong>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <button
+                            className={styles.secondaryBtn}
+                            onClick={() => {
+                              setAssignNoteData({ noteId: String(n.id), studentIds: [] });
+                              setActiveNoteSubTab("assign-notes");
+                            }}
+                            style={{ flex: 1 }}
+                          >
+                            🎯 Assign
+                          </button>
+                          <button
+                            className={styles.deleteBtn}
+                            onClick={() => deleteNote(n.id)}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 📄 STUDENT ANSWER SHEET & MANUAL EVALUATION MODAL */}
         {showAnswerSheetModal && selectedStudentResult && (() => {
           const breakdown = selectedStudentResult.breakdown || [];
@@ -1699,6 +2330,63 @@ export default function EducatorDashboard() {
                 onSubmit={handleAssessmentFormSubmit}
                 initialData={editAssessment}
               />
+            </div>
+          </div>
+        )}
+
+        {/* MY PROFILE MODAL */}
+        {showProfileModal && (
+          <div className={styles.modalBackdrop} onClick={() => setShowProfileModal(false)}>
+            <div className={styles.profileModalContent} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.profileModalHeader}>
+                <h2>My Educator Profile</h2>
+                <button className={styles.closeBtn} onClick={() => setShowProfileModal(false)}>✕</button>
+              </div>
+              <div className={styles.profileModalBody}>
+                <div className={styles.profileHero}>
+                  <div className={styles.profileHeroAvatar}>
+                    {(educator?.fullName || educator?.name || "E").charAt(0).toUpperCase()}
+                  </div>
+                  <div className={styles.profileHeroInfo}>
+                    <h3>{educator?.fullName || educator?.name || "Educator"}</h3>
+                    <p>{educator?.email || "educator@portal.com"}</p>
+                    <span className={styles.dropdownRoleBadge}>
+                      Verified Educator
+                    </span>
+                  </div>
+                </div>
+                <div className={styles.profileDetailsGrid}>
+                  <div className={styles.profileDetailItem}>
+                    <label>Full Name</label>
+                    <span>{educator?.fullName || educator?.name || "N/A"}</span>
+                  </div>
+                  <div className={styles.profileDetailItem}>
+                    <label>Email Address</label>
+                    <span>{educator?.email || "N/A"}</span>
+                  </div>
+                  <div className={styles.profileDetailItem}>
+                    <label>User Role</label>
+                    <span style={{ textTransform: "capitalize" }}>{educator?.role || "Educator"}</span>
+                  </div>
+                  <div className={styles.profileDetailItem}>
+                    <label>Account Status</label>
+                    <span style={{ color: "#16a34a" }}>Active ✅</span>
+                  </div>
+                  <div className={styles.profileDetailItem}>
+                    <label>User ID</label>
+                    <span>#{educator?.id || "EDU-101"}</span>
+                  </div>
+                  <div className={styles.profileDetailItem}>
+                    <label>Portal Access</label>
+                    <span>Assessment Portal</span>
+                  </div>
+                </div>
+              </div>
+              <div className={styles.profileModalFooter}>
+                <button className={styles.primaryCloseBtn} onClick={() => setShowProfileModal(false)}>
+                  Close Profile
+                </button>
+              </div>
             </div>
           </div>
         )}

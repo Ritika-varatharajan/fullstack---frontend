@@ -14,6 +14,8 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
@@ -167,14 +169,87 @@ export default function AdminDashboard() {
               />
             </div>
 
-            {/* PROFILE PILL */}
-            <div className={styles.profilePill}>
-              <div className={styles.pillAvatar}>
-                {(adminUser?.fullName || adminUser?.name || "A").charAt(0).toUpperCase()}
+            {/* PROFILE PILL & DROPDOWN MENU */}
+            <div className={styles.profileWrapper}>
+              <div
+                className={styles.profilePill}
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                title="Account Menu"
+              >
+                <div className={styles.pillAvatar}>
+                  {(adminUser?.fullName || adminUser?.name || "A").charAt(0).toUpperCase()}
+                </div>
+                <span className={styles.pillText}>
+                  {adminUser?.fullName?.split(" ")[0] || adminUser?.name || "Admin"}
+                </span>
+                <svg
+                  width="14"
+                  height="14"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  style={{
+                    marginLeft: "2px",
+                    transition: "transform 0.2s",
+                    transform: showProfileDropdown ? "rotate(180deg)" : "none",
+                  }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </div>
-              <span className={styles.pillText}>
-                {adminUser?.fullName?.split(" ")[0] || "Admin"}
-              </span>
+
+              {showProfileDropdown && (
+                <>
+                  <div
+                    className={styles.profileDropdownOverlay}
+                    onClick={() => setShowProfileDropdown(false)}
+                  />
+                  <div className={styles.profileDropdownMenu}>
+                    <div className={styles.dropdownHeader}>
+                      <div className={styles.dropdownAvatar}>
+                        {(adminUser?.fullName || adminUser?.name || "A").charAt(0).toUpperCase()}
+                      </div>
+                      <div className={styles.dropdownUserInfo}>
+                        <span className={styles.dropdownName}>
+                          {adminUser?.fullName || adminUser?.name || "System Administrator"}
+                        </span>
+                        <span className={styles.dropdownEmail}>
+                          {adminUser?.email || "admin@portal.com"}
+                        </span>
+                        <span className={styles.dropdownRoleBadge}>
+                          {adminUser?.role || "Admin"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      className={styles.dropdownItem}
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        setShowProfileModal(true);
+                      }}
+                    >
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      My Profile
+                    </button>
+
+                    <button
+                      className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`}
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        handleLogout();
+                      }}
+                    >
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -818,6 +893,63 @@ export default function AdminDashboard() {
                 }
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* MY PROFILE MODAL */}
+      {showProfileModal && (
+        <div className={styles.modalBackdrop} onClick={() => setShowProfileModal(false)}>
+          <div className={styles.profileModalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.profileModalHeader}>
+              <h2>My Admin Profile</h2>
+              <button className={styles.closeBtn} onClick={() => setShowProfileModal(false)}>✕</button>
+            </div>
+            <div className={styles.profileModalBody}>
+              <div className={styles.profileHero}>
+                <div className={styles.profileHeroAvatar}>
+                  {(adminUser?.fullName || adminUser?.name || "A").charAt(0).toUpperCase()}
+                </div>
+                <div className={styles.profileHeroInfo}>
+                  <h3>{adminUser?.fullName || adminUser?.name || "System Administrator"}</h3>
+                  <p>{adminUser?.email || "admin@portal.com"}</p>
+                  <span className={styles.dropdownRoleBadge}>
+                    System Admin
+                  </span>
+                </div>
+              </div>
+              <div className={styles.profileDetailsGrid}>
+                <div className={styles.profileDetailItem}>
+                  <label>Full Name</label>
+                  <span>{adminUser?.fullName || adminUser?.name || "N/A"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>Email Address</label>
+                  <span>{adminUser?.email || "N/A"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>User Role</label>
+                  <span style={{ textTransform: "capitalize" }}>{adminUser?.role || "Admin"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>Account Status</label>
+                  <span style={{ color: "#16a34a" }}>Super Admin ✅</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>User ID</label>
+                  <span>#{adminUser?.id || "ADM-001"}</span>
+                </div>
+                <div className={styles.profileDetailItem}>
+                  <label>Portal Access</label>
+                  <span>Full Administrative</span>
+                </div>
+              </div>
+            </div>
+            <div className={styles.profileModalFooter}>
+              <button className={styles.primaryCloseBtn} onClick={() => setShowProfileModal(false)}>
+                Close Profile
+              </button>
+            </div>
           </div>
         </div>
       )}
