@@ -1485,20 +1485,20 @@ export default function StudentDashboard() {
         );
       })()}
 
-      {/* 📥 SUBJECT PERFORMANCE REPORT MODAL (WITH QUILL LOGO, NEAT TABLE, CRISP REMARKS & PDF DOWNLOAD) */}
+      {/* 📥 SUBJECT PERFORMANCE REPORT MODAL (WITH SCORECRAFT LOGO, NEAT TABLE, CRISP REMARKS & PDF DOWNLOAD) */}
       {showSubjectReportModal && selectedSubjectReport && (
         <div className={styles.modalOverlay}>
           <div className={styles.reportModalContent}>
-            {/* HEADER WITH QUILL LOGO & ACTIONS */}
+            {/* HEADER WITH SCORECRAFT LOGO & ACTIONS */}
             <div className={styles.reportHeaderTop}>
               <div className={styles.reportLogo}>
                 <img
                   src="/quill_logo.jpg"
-                  alt="Quill Logo"
+                  alt="ScoreCraft Logo"
                   style={{ width: "42px", height: "42px", borderRadius: "10px", objectFit: "cover" }}
                 />
                 <div>
-                  <h2 className={styles.reportBrandName}>Quill Assessment Portal</h2>
+                  <h2 className={styles.reportBrandName}>ScoreCraft Assessment Portal</h2>
                   <p className={styles.reportSubTitle}>Official Academic Subject Performance & Growth Report</p>
                 </div>
               </div>

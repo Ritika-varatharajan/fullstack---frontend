@@ -9,8 +9,8 @@ export default function Home() {
       {/* HEADER NAVBAR */}
       <header className={styles.header}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <img src="/quill_logo.jpg" alt="Quill Logo" style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "cover" }} />
-          <h1 className={styles.logo}>Quill<span>Portal</span></h1>
+          <img src="/quill_logo.jpg" alt="ScoreCraft Logo" style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "cover" }} />
+          <h1 className={styles.logo}>Score<span>Craft</span></h1>
         </div>
 
         <nav className={styles.nav}>
@@ -31,7 +31,7 @@ export default function Home() {
             🚀 Next-Gen Evaluation & Analytics Platform
           </div>
           <h2>
-            Smart <span className={styles.highlight}>Assessment & Evaluation</span> with Quill
+            Smart <span className={styles.highlight}>Assessment & Evaluation</span> with ScoreCraft
           </h2>
           <p>
             Create, manage, assign, and evaluate assessments with ease. Built with role-based features for educators, administrators, and students.
@@ -46,19 +46,19 @@ export default function Home() {
           </div>
         </div>
 
-        <img src="/home.jpg" alt="Quill Platform" className={styles.heroImage} />
+        <img src="/home.jpg" alt="ScoreCraft Platform" className={styles.heroImage} />
       </section>
 
       {/* ABOUT SECTION */}
       <section id="about" className={styles.section}>
-        <h2>About Quill</h2>
+        <h2>About ScoreCraft</h2>
         <p className={styles.sectionSub}>
           Streamlining education and automated assessment evaluation
         </p>
 
         <div className={styles.card} style={{ maxWidth: "800px", margin: "0 auto" }}>
           <p>
-            <strong>Quill</strong> is a smart, interactive platform designed for creating, delivering, and evaluating tests 📝. 
+            <strong>ScoreCraft</strong> is a smart, interactive platform designed for creating, delivering, and evaluating tests 📝. 
             Educators can design customized question banks, assign tests to students, and inspect performance analytics 📊. 
             Students benefit from timed test taking ⏳, instant auto-graded answer sheets, and personalized performance progress tracking 🚀.
           </p>
@@ -144,7 +144,7 @@ export default function Home() {
 
       {/* FOOTER */}
       <footer className={styles.footer}>
-        <p>© 2026 Quill Academic Evaluation System | All Rights Reserved.</p>
+        <p>© 2026 ScoreCraft - Student Performance and Management System | All Rights Reserved.</p>
       </footer>
     </div>
   );

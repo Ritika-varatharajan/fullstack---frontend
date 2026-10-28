@@ -104,13 +104,13 @@ export default function RegisterPage() {
           <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: "6px", textDecoration: "none", color: "#ea580c", fontWeight: 700, fontSize: "0.88rem", background: "#fff7ed", padding: "6px 12px", borderRadius: "10px", border: "1px solid #fed7aa" }}>
             ← Back to Home
           </Link>
-          <span style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600 }}>Quill Portal</span>
+          <span style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600 }}>ScoreCraft Portal</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "0.5rem" }}>
-          <img src="/quill_logo.jpg" alt="Quill Logo" style={{ width: "40px", height: "40px", borderRadius: "10px", objectFit: "cover" }} />
-          <span style={{ fontSize: "1.75rem", fontWeight: 800, color: "#f97316" }}>Quill</span>
+          <img src="/quill_logo.jpg" alt="ScoreCraft Logo" style={{ width: "40px", height: "40px", borderRadius: "10px", objectFit: "cover" }} />
+          <span style={{ fontSize: "1.75rem", fontWeight: 800, color: "#f97316" }}>ScoreCraft</span>
         </div>
-        <h2>Create Account on Quill</h2>
+        <h2>Create Account on ScoreCraft</h2>
 
         <form onSubmit={handleSubmit} autoComplete="off">
           <input

@@ -33,10 +33,10 @@ export default function AdminSidebar({
     <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ""}`}>
       {/* BRAND HEADER */}
       <div className={styles.brandHeader}>
-        <img src="/quill_logo.jpg" alt="Quill Logo" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover" }} />
+        <img src="/quill_logo.jpg" alt="ScoreCraft Logo" style={{ width: "32px", height: "32px", borderRadius: "8px", objectFit: "cover" }} />
         {!isCollapsed && (
           <div className={styles.brandText}>
-            <span className={styles.brandTitle}>Quill</span>
+            <span className={styles.brandTitle}>ScoreCraft</span>
             <span className={styles.brandSub}>Admin</span>
           </div>
         )}

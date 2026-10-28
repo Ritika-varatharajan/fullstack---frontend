@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Quill - Modern Assessment & Evaluation Portal",
-  description: "Modern Assessment Creation, Delivery, Auto-grading & Analytics Platform by Quill",
+  title: "ScoreCraft - Student Performance and Management System",
+  description: "Modern Student Performance Assessment, Delivery, Auto-grading & Management System by ScoreCraft",
 };
 
 export default function RootLayout({
